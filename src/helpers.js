@@ -98,7 +98,7 @@ if(process.env.mysqlDb)
  */
 function query(stmt, WHERE = [])
 {
-    return new Promise(r => connection.query(stmt, WHERE, (err, results) => r(err ? false : results)));
+    return new Promise(r => connection.query(stmt, WHERE, (err, results) => r(err ? err : results)));
 }
 
 export default {
