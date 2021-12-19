@@ -13,7 +13,7 @@ import helpers from "./helpers.js";
  }
  */
  export async function addJob(msg, publish){
-    const stmt = await query("INSERT INTO `jobs` (`userID`) VALUES (?)", [
+    const stmt = await helpers.query("INSERT INTO `jobs` (`userID`) VALUES (?)", [
         msg.userID,
     ]);
     const jobID = stmt?.insertId;
@@ -22,7 +22,7 @@ import helpers from "./helpers.js";
         for(let i = 0; i < msg.solvers.length; i++)
         {
             const solver = msg.solvers[i];
-            console.log(await query("INSERT INTO `jobFiles` (`modelID`, `dataID`, `jobID`) VALUES (?, ?, ?)", [
+            console.log(await helpers.query("INSERT INTO `jobFiles` (`modelID`, `dataID`, `jobID`) VALUES (?, ?, ?)", [
                 msg.model,
                 msg.dataset,
                 jobID,
@@ -37,7 +37,7 @@ import helpers from "./helpers.js";
  }
 
  export async function queueCheck(msg, publish){
-    const queue = await query("SELECT *, " +
+    const queue = await helpers.query("SELECT *, " +
     "(SELECT `solverLimit` FROM `users` WHERE users.id = jobs.userID LIMIT 1) as `solverLimit` " + 
     // "(SELECT `data` FROM `files` WHERE files.id = jobs.modelID LIMIT 1) as `modelContent`, " + 
     // "(SELECT `data` FROM `files` WHERE files.id = jobs.dataID LIMIT 1) as `dataContent` " + 
@@ -48,7 +48,7 @@ import helpers from "./helpers.js";
     {
         const job = queue[0];
 
-        const jobSolvers = await query("SELECT * FROM `jobFiles` WHERE `jobID` = ? ORDER BY `id` DESC", [
+        const jobSolvers = await helpers.query("SELECT * FROM `jobFiles` WHERE `jobID` = ? ORDER BY `id` DESC", [
             job.id,
         ]);
         const neededResources = Math.min(Number(job.solverLimit), (jobSolvers || []).length);
@@ -56,7 +56,7 @@ import helpers from "./helpers.js";
         console.log(solvers, jobSolvers, job);
         if(solvers && neededResources > 0)
         {
-            await query("UPDATE `jobs` SET `status` = '1', `startTime` = ? WHERE `id` = ?", [
+            await helpers.query("UPDATE `jobs` SET `status` = '1', `startTime` = ? WHERE `id` = ?", [
                 Date.now(),
                 job.id,
             ]);
@@ -90,7 +90,7 @@ import helpers from "./helpers.js";
             });
         }else if(neededResources === 0)
         {
-            await query("UPDATE `jobs` SET `status` = '2', `endTime` = ? WHERE `id` = ?", [
+            await helpers.query("UPDATE `jobs` SET `status` = '2', `endTime` = ? WHERE `id` = ?", [
                 Date.now(),
                 job.id,
             ]);
@@ -106,7 +106,7 @@ import helpers from "./helpers.js";
         solver.busy = false;
     }
 
-    await query("INSERT INTO `jobOutput` (`content`, `jobID`) VALUES (?, ?)", [
+    await helpers.query("INSERT INTO `jobOutput` (`content`, `jobID`) VALUES (?, ?)", [
         JSON.stringify(data), // TODO: Dont just stringify it
         msg.problemID
     ]);
@@ -114,7 +114,7 @@ import helpers from "./helpers.js";
     const solvers = getBusySolvers(msg.problemID);
     if(solvers.length === 0)
     {
-        await query("UPDATE `jobs` SET `status` = '2', `endTime` = ? WHERE `id` = ?", [
+        await helpers.query("UPDATE `jobs` SET `status` = '2', `endTime` = ? WHERE `id` = ?", [
             Date.now(),
             job.id,
         ]);
@@ -123,7 +123,7 @@ import helpers from "./helpers.js";
  }
 
  export async function jobHistory(msg, publish){
-    const data = await query("SELECT * FROM `jobs` WHERE `userID` = ? ORDER BY `id` DESC LIMIT 50", [
+    const data = await helpers.query("SELECT * FROM `jobs` WHERE `userID` = ? ORDER BY `id` DESC LIMIT 50", [
         msg.userID // Should be token userID?
     ]);
     publish("job-history-response", {

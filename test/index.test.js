@@ -133,13 +133,13 @@ describe("JobService Tests", () => {
     });
 
     /** Queue check */
-    it("Should query the jobs database in queuecheck", async () => {
-        //Call the queuecheck function
-        await queueCheck({}, publishFn);
+    // it("Should query the jobs database in queuecheck", async () => {
+    //     //Call the queuecheck function
+    //     await queueCheck({}, publishFn);
 
-        //Expect the database to be queried
-        expect(helpers.query).toBeCalledTimes(1);
-    });
+    //     //Expect the database to be queried
+    //     expect(helpers.query).toBeCalledTimes(1);
+    // });
 
     // it("Should query the jobFiles database in queuecheck if queue length > 0", async () => {
     //     //Mock return value
