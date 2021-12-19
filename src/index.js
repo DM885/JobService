@@ -1,4 +1,4 @@
-import {host, query, subscriber, publishAndWait} from "./helpers.js";
+import helpers from "./helpers.js";
 import SolverManager from "./SolverManager.js";
 const manager = new SolverManager();
 
@@ -13,14 +13,14 @@ const manager = new SolverManager();
 }
 */
 export async function addJob(msg, publish){
-    const stmt = await query("INSERT INTO `jobs` (`userID`) VALUES (?)", [msg.userID]);
+    const stmt = await helpers.query("INSERT INTO `jobs` (`userID`) VALUES (?)", [msg.userID]);
     const jobID = stmt?.insertId;
     if(jobID)
     {
         for(let i = 0; i < msg.solvers.length; i++)
         {
             const solver = msg.solvers[i];
-            await query("INSERT INTO `jobFiles` (`modelID`, `dataID`, `jobID`) VALUES (?, ?, ?)", [
+            await helpers.query("INSERT INTO `jobFiles` (`modelID`, `dataID`, `jobID`) VALUES (?, ?, ?)", [
                 solver.modelID,
                 solver.dataID,
                 jobID,
@@ -36,7 +36,7 @@ export async function addJob(msg, publish){
 
 export async function queueCheck(msg, publish){
     
-    const queue = await query("SELECT *, " +
+    const queue = await helpers.query("SELECT *, " +
         "(SELECT `solverLimit` FROM `users` WHERE users.id = jobs.user LIMIT 1) as `solverLimit`, " + 
         // "(SELECT `data` FROM `files` WHERE files.id = jobs.modelID LIMIT 1) as `modelContent`, " + 
         // "(SELECT `data` FROM `files` WHERE files.id = jobs.dataID LIMIT 1) as `dataContent` " + 
@@ -46,14 +46,14 @@ export async function queueCheck(msg, publish){
     {
         const job = queue[0];
 
-        const jobSolvers = await query("SELECT * FROM `jobFiles` WHERE `jobID` = ? ORDER BY `id` DESC", [
+        const jobSolvers = await helpers.query("SELECT * FROM `jobFiles` WHERE `jobID` = ? ORDER BY `id` DESC", [
             job.id,
         ]);
         const neededResources = Math.min(Number(job.solverLimit), (jobSolvers || []).length);
         const solvers = manager.getIdleSolvers(neededResources); 
         if(solvers && neededResources > 0)
         {
-            await query("UPDATE `jobs` SET `status` = '1' WHERE `id` = ?", [
+            await helpers.query("UPDATE `jobs` SET `status` = '1' WHERE `id` = ?", [
                 job.id,
             ]);
             console.log("Send jobs to theese solvers", solvers);
@@ -86,7 +86,7 @@ export async function queueCheck(msg, publish){
             });
         }else if(neededResources === 0)
         {
-            await query("UPDATE `jobs` SET `status` = '2' WHERE `id` = ?", [
+            await helpers.query("UPDATE `jobs` SET `status` = '2' WHERE `id` = ?", [
                 job.id,
             ]);
         }
@@ -103,7 +103,7 @@ export async function jobFinished(msg, publish){
     const solvers = getBusySolvers(msg.problemID);
     if(solvers.length === 0)
     {
-        await query("UPDATE `jobs` SET `status` = '2' WHERE `id` = ?", [
+        await helpers.query("UPDATE `jobs` SET `status` = '2' WHERE `id` = ?", [
             job.id,
         ]);
         publish("queue-check", {});
@@ -111,7 +111,7 @@ export async function jobFinished(msg, publish){
 }
 
 export async function jobHistory(msg, publish){
-    const data = await query("SELECT * FROM `jobs` WHERE `user` = ? ORDER BY `id` DESC LIMIT 50", [
+    const data = await helpers.query("SELECT * FROM `jobs` WHERE `user` = ? ORDER BY `id` DESC LIMIT 50", [
         msg.userID // Should be token userID?
     ]);
     publish("job-history-response", {
@@ -133,7 +133,7 @@ export async function solverHealth(msg, publish){
 
 if(process.env.RAPID)
 {
-    subscriber(host, [
+    helpers.subscriber(helpers.host, [
         {river: "jobs", event: "add-job", work: addJob}, // Adds a new job
         {river: "jobs", event: "queue-check", work: queueCheck}, // Runs the next job in the queue, if there is any
         {river: "jobs", event: "job-history", work: jobHistory}, // Gets the job history of a user

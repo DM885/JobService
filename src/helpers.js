@@ -1,48 +1,39 @@
-import rapid from "@ovcina/rapidriver";
-import jwt from "jsonwebtoken";
-import mysql from "mysql";
-
-import RapidManager from "./rapid/RapidManager.js";
+import rapid from '@ovcina/rapidriver';
+import jwt from 'jsonwebtoken';
+import mysql from 'mysql';
 
 const SECRET = process.env.SECRET ?? `3(?<,t2mZxj$5JT47naQFTXwqNWP#W>'*Kr!X!(_M3N.u8v}%N/JYGHC.Zwq.!v-`;  // JWT secret
-const rabbitUser = process.env.rabbitUser ?? "guest";
-const rabbitPass = process.env.rabbitPass ?? "guest";
-export const host = "amqp://" + rabbitUser + ":" + rabbitPass + "@" + (process.env.rabbitHost ?? `localhost`);  // RabbitMQ url
-
-
-export function publishAndWait(event, responseEvent, sessionID, data, userID)
-{
-    return new Promise(r => RapidManager.publishAndSubscribe(event, responseEvent, sessionID, data, r, userID));
-}
+const rabbitUser = process.env.rabbitUser ?? 'guest';
+const rabbitPass = process.env.rabbitPass ?? 'guest';
+const host = 'amqp://' + rabbitUser + ':' + rabbitPass + '@' + (process.env.rabbitHost ?? `localhost`);  // RabbitMQ url
 
 /**
  * Automatically adds logging, request and sessionIDs to rabbit responses.
- * @param stromg host 
- * @param [] subscribers 
+ * @param host a string representing the host to start a subscription with
+ * @param subscribers a list of subscribers
  */
- export function subscriber(host, subscribers)
- {
-     rapid.subscribe(host, subscribers.map(subscriber => ({
-         river: subscriber.river,
-         event: subscriber.event,
-         work: (msg, publish) => {
-             const wrappedPublish = (event, data) => {
-                let logPath = msg.logPath ?? [];
-                logPath.push({
-                    river: subscriber.river, 
-                    event: subscriber.event
-                });
+function subscriber(host, subscribers) {
+  rapid.subscribe(host, subscribers.map(subscriber => ({
+    river: subscriber.river,
+    event: subscriber.event,
+    work: (msg, publish) => {
+      const wrappedPublish = (event, data) => {
+        let logPath = msg.logPath ?? [];
+        logPath.push({
+          river: subscriber.river,
+          event: subscriber.event
+        });
 
-                publish(event, {
-                    ...data,
-                    sessionId: msg.sessionId,
-                    requestId: msg.requestId,
-                    logPath
-                });
-             };
-             subscriber.work(msg, wrappedPublish);
-         },
-     })));
+        publish(event, {
+          ...data,
+          sessionId: msg.sessionId,
+          requestId: msg.requestId,
+          logPath
+        });
+      };
+      subscriber.work(msg, wrappedPublish);
+    },
+  })));
 }
 
 /**
@@ -50,7 +41,7 @@ export function publishAndWait(event, responseEvent, sessionID, data, userID)
  * @param String token 
  * @returns Promise<false|TokenData>
  */
-export function getTokenData(token)
+function getTokenData(token)
 {
     return new Promise(resolve => jwt.verify(token, SECRET, (err, data) => resolve(err ? false : data)));
 }
@@ -94,7 +85,15 @@ if(process.env.mysqlDb)
  * @param ?string[] WHERE 
  * @returns results[]|false
  */
-export function query(stmt, WHERE = [])
+function query(stmt, WHERE = [])
 {
     return new Promise(r => connection.query(stmt, WHERE, (err, results) => r(err ? false : results)));
 }
+
+export default {
+    host,
+    subscriber,
+    getTokenData,
+    query
+};
+  
