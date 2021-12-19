@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, it, jest} from '@jest/globals';
+import {afterAll, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {addJob, jobFinished, queueCheck, jobHistory, solverHealth} from '../src/index.js';
 import helpers from '../src/helpers.js';
 

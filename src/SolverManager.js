@@ -50,7 +50,7 @@ class Solver {
         }else if((Date.now() - this.#lastMessage) >= (1000 * 60 * 60)) // Hasent responded to health checks for atleast an hour
         {
             return false;
-        }
+        }  
         return true;
     }
 }
@@ -68,8 +68,8 @@ export default class SolverManager {
      * Discovers all solver-services already running.
      */
     discover()
-    {
-        rapid.publish(helpers.host, "solver-ping", {});
+    {    
+        rapid.publish(helpers.host, "solver-ping", {});       
     }
 
     /**
