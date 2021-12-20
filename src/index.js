@@ -1,3 +1,4 @@
+// import {helpers.host, helpers.query, helpers.subscriber, helpers.publishAndWait} from "./helpers.js";
 import helpers from "./helpers.js";
 import SolverManager from "./SolverManager.js";
 export const manager = new SolverManager();
@@ -5,26 +6,31 @@ export const manager = new SolverManager();
 /*
 {
     userID: number,
-    solvers: [{
-        modelID: number,
-        dataID: number,
-        // solver: "",
-    }]
+    modelID: number,
+    dataID: number,
+    
 }
 */
 export async function addJob(msg, publish){
-    const stmt = await helpers.query("INSERT INTO `jobs` (`userID`) VALUES (?)", [
+    const stmt = await helpers.query("INSERT INTO `jobs` (`userID`, `dataID`, `modelID`) VALUES (?, ?, ?)", [
         msg.userID,
+        msg.dataID,
+        msg.modelID
     ]);
+
     const jobID = stmt?.insertId;
     if(jobID)
     {
         for(let i = 0; i < msg.solvers.length; i++)
         {
             const solver = msg.solvers[i];
-            await helpers.query("INSERT INTO `jobFiles` (`modelID`, `dataID`, `jobID`) VALUES (?, ?, ?)", [
-                msg.model,
-                msg.dataset,
+            await helpers.query("INSERT INTO `jobParts` (`solverID`, `cpuLimit`, `timeLimit`, `memoryLimit`, `flagS`, `flagF`, `jobID`) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+                solver.solverID,
+                solver.cpuLimit,
+                solver.timeLimit,
+                solver.memoryLimit,
+                solver.flagS,
+                solver.flagF,
                 jobID,
             ]);
         }
@@ -37,8 +43,7 @@ export async function addJob(msg, publish){
 }
 
 export async function queueCheck(_, publish){
-    const queue = await helpers.query("SELECT * " +
-    "FROM `jobs` WHERE `status` = '0' ORDER BY `id` ASC LIMIT 1");
+    const queue = await helpers.query("SELECT * FROM `jobs` WHERE `status` = '0' ORDER BY `id` ASC LIMIT 1");
     console.log("Queue check", queue.length, "in queue");
     
     if(queue && queue.length > 0)
@@ -50,43 +55,58 @@ export async function queueCheck(_, publish){
         }, -1);
         if(userInfo)
         {
-            const jobSolvers = await helpers.query("SELECT * FROM `jobFiles` WHERE `jobID` = ? ORDER BY `id` DESC", [
+            const jobSolvers = await helpers.query("SELECT * FROM `jobParts` WHERE `jobID` = ? ORDER BY `id` DESC", [
                 job.id,
             ]);
             const neededResources = Math.min(Number(userInfo.solverLimit), (jobSolvers || []).length);
             const solvers = manager.getIdleSolvers(neededResources); 
             if(solvers && neededResources > 0)
             {
-                await helpers.query("UPDATE `jobs` SET `status` = '1', `startTime` = ? WHERE `id` = ?", [
-                    Date.now(),
-                    job.id,
+                const [dataContent, modelContent, allSolvers] = await Promise.all([
+                    helpers.publishAndWait("read-file", "read-file-response", 0, {
+                        fileId: job.dataID,
+                    }, -1),
+                    helpers.publishAndWait("read-file", "read-file-response", 0, {
+                        fileId: job.modelID,
+                    }, -1),
+                    helpers.publishAndWait("list-solvers", "list-solvers-response", 0, {}, -1),
                 ]);
+                
                 solvers.forEach(async (solver, i) => {
                     const target = jobSolvers[i];
-                    const [dataContent, modelContent] = await Promise.all([
-                        helpers.publishAndWait("read-file", "read-file-response", 0, {
-                            fileId: target.dataID,
-                        }, -1),
-                        helpers.publishAndWait("read-file", "read-file-response", 0, {
-                            fileId: target.modelID,
-                        }, -1),
-                    ]);
+                    const targetSolver = allSolvers.find(s => s.id === target.solverID);
+
                     if(!dataContent.error && !modelContent.error)
                     {
                         solver.busy = true;
                         solver.jobID = job.id;
     
+                        const memoryLimit = Number(target.memoryLimit);
+                        const timeLimit = Number(target.timeLimit);
+                        const cpuLimit = Number(target.cpuLimit);
+
                         publish("solve", {
                             solverID: solver.id,
                             problemID: job.id,
                             data: dataContent.data,
                             model: modelContent.data,
-                            solver: false,
-                            flagS: false,
-                            flagF: false,
+                            solver: targetSolver.name,
+                            dockerImage: targetSolver.docker_image,
+
+                            flagS: Number(target.flagS),
+                            flagF: Number(target.flagF),
+
+                            cpuLimit: cpuLimit === 0 ? false : cpuLimit,
+                            timeLimit: timeLimit === 0 ? false : timeLimit,
+                            memoryLimit: memoryLimit === 0 ? false : (memoryLimit + "m"),
                         });
                     }
                 });
+                
+                await helpers.query("UPDATE `jobs` SET `status` = '1', `startTime` = ? WHERE `id` = ?", [
+                    Date.now(),
+                    job.id,
+                ]);
             }else if(neededResources === 0)
             {
                 await helpers.query("UPDATE `jobs` SET `status` = '2', `endTime` = ? WHERE `id` = ?", [
@@ -130,6 +150,15 @@ export async function jobHistory(msg, publish){
     });
 }
 
+export async function jobOutput(msg, publish){
+    const data = await helpers.query("SELECT * FROM `jobOutput` WHERE `jobID` = ?", [
+        msg.id,
+    ]);
+    publish("job-output-response", {
+        data: data && data.length > 0 ? data[0] : false,
+    });
+}
+
 export async function solverHealth(msg, publish){
     let solver = manager.getSolver(msg.solverID);
     if(!solver)
@@ -140,11 +169,11 @@ export async function solverHealth(msg, publish){
         console.log("Solver alive", msg.solverID, solver);
         solver.busy = msg.problemID !== -1;
     }
-
+    
     solver?.healthUpdate();
     if(msg.respond)
     {
-        helpers.publish("solver-ping", {
+        publish(helpers.host, "solver-ping", {
             solverID: msg.solverID, 
         });
     }
@@ -156,6 +185,7 @@ if(process.env.RAPID)
         {river: "jobs", event: "add-job", work: addJob}, // Adds a new job
         {river: "jobs", event: "queue-check", work: queueCheck}, // Runs the next job in the queue, if there is any
         {river: "jobs", event: "job-history", work: jobHistory}, // Gets the job history of a user
+        {river: "jobs", event: "job-output", work: jobOutput}, // Gets the output of a job
         {river: "jobs", event: "solver-response", work: jobFinished}, // A solver has answered
         
         // Solver manager stuff

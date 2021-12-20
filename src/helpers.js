@@ -22,7 +22,7 @@ function publishAndWait(event, responseEvent, sessionID, data, userID)
  * @param stromg host 
  * @param [] subscribers 
  */
-function subscriber(host, subscribers)
+ function subscriber(host, subscribers)
  {
      rapid.subscribe(host, subscribers.map(subscriber => ({
          river: subscriber.river,
@@ -68,7 +68,18 @@ if(process.env.mysqlDb)
     });
     connection.connect();
 
-    const res0 = await query("CREATE TABLE IF NOT EXISTS `jobOutput` (" +
+    const res0 = await query("CREATE TABLE IF NOT EXISTS `jobs` (" +
+    "`id` int(11) unsigned NOT NULL AUTO_INCREMENT," +
+    "`userID` int(11) unsigned NOT NULL DEFAULT '0'," +
+    "`status` int(11) unsigned NOT NULL DEFAULT '0'," +
+    "`modelID` int(10) unsigned NOT NULL DEFAULT '0'," +
+    "`dataID` int(10) unsigned NOT NULL DEFAULT '0'," +
+    "`startTime` TEXT," +
+    "`endTime` TEXT," +
+    "KEY `Index 1` (`id`)" +
+    "  ) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
+
+    const res1 = await query("CREATE TABLE IF NOT EXISTS `jobOutput` (" +
     "`id` int(10) unsigned NOT NULL AUTO_INCREMENT," +
     "`content` TEXT," +
     "`jobID` int(10) unsigned NOT NULL DEFAULT '0'," +
@@ -77,28 +88,23 @@ if(process.env.mysqlDb)
     "CONSTRAINT `FK_jobOutput_jobs` FOREIGN KEY (`jobID`) REFERENCES `jobs` (`id`)" +
     " ) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
 
-    const res1 = await query("CREATE TABLE IF NOT EXISTS `jobFiles` (" +
+    const res2 = await query("CREATE TABLE IF NOT EXISTS `jobParts` (" +
     "`id` int(10) unsigned NOT NULL AUTO_INCREMENT," +
-    "`dataID` int(10) unsigned NOT NULL DEFAULT '0'," +
-    "`modelID` int(10) unsigned NOT NULL DEFAULT '0'," +
+    "`solverID` int(10) unsigned NOT NULL DEFAULT '0'," +
+    "`flagS` int(1) unsigned NOT NULL DEFAULT '0'," +
+    "`flagF` int(1) unsigned NOT NULL DEFAULT '0'," +
+    "`timeLimit` int(1) unsigned NOT NULL DEFAULT '0'," +
+    "`cpuLimit` int(1) unsigned NOT NULL DEFAULT '3'," +
+    "`memoryLimit` int(11) unsigned NOT NULL DEFAULT '500'," +
     "`jobID` int(10) unsigned NOT NULL DEFAULT '0'," +
     "KEY `Index 1` (`id`)," +
-    "KEY `FK_jobFiles_jobs` (`jobID`)," +
-    "CONSTRAINT `FK_jobFiles_jobs` FOREIGN KEY (`jobID`) REFERENCES `jobs` (`id`)" +
+    "KEY `FK_jobParts_jobs` (`jobID`)," +
+    "CONSTRAINT `FK_jobParts_jobs` FOREIGN KEY (`jobID`) REFERENCES `jobs` (`id`)" +
     " ) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
-
-    const res2 = await query("CREATE TABLE IF NOT EXISTS `jobs` (" +
-    "`id` int(11) unsigned NOT NULL AUTO_INCREMENT," +
-    "`userID` int(11) unsigned NOT NULL DEFAULT '0'," +
-    "`status` int(11) unsigned NOT NULL DEFAULT '0'," +
-    "`startTime` TEXT," +
-    "`endTime` TEXT," +
-    "KEY `Index 1` (`id`)" +
-    //"KEY `FK__users` (`userID`)," +
-    //"CONSTRAINT `FK__users` FOREIGN KEY (`userID`) REFERENCES `users` (`id`)" +
-    "  ) ENGINE=InnoDB DEFAULT CHARSET=latin1;");
     
-    if(!res0 || !res1 || !res2) process.exit(1);
+    if(!res0 || !res1 || !res2){
+        process.exit(1);
+    }
 }
 
 /**
