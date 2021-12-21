@@ -1,4 +1,3 @@
-
 describe('JOBSERVICE tests', () => {
 
     beforeEach(()=> {
@@ -49,31 +48,40 @@ describe('JOBSERVICE tests', () => {
           })
           .then((response) => {
             expect(response.body.error).to.eq(false);
+            cy.request({
+                method:'GET', 
+                url:'/jobs',
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + Cypress.env("token")
+                }
+              })
+              .then((res) => {
+                expect(res.body.data.length).to.eq(1);
+                expect(res.body.error).to.eq(false);
+              })
           })
           .its('status')
           .should('eq', 200);
     });
 
-    // it("should return output of one job", () => {
-    //     cy.addJob();
-    //     cy.getAllJobs();
+    it("should delete all jobs", () => {
+        cy.getAllJobs();
+        cy.deleteAllJobs();
 
-    //     const result = Cypress.env("allJobs");
-    //     console.log(result);
-
-    //     // cy.request({
-    //     //     method:'GET', 
-    //     //     url:'/jobs/'+result.data[0].id,
-    //     //     headers: {
-    //     //         "Content-Type": "application/json",
-    //     //         "Authorization": "Bearer " + Cypress.env("token")
-    //     //     }
-    //     //   })
-    //     //   .then((response) => {
-    //     //       console.log(response)
-    //     //     // expect(response.body.error).to.eq(false);
-    //     //   })
-    //     //   .its('status')
-    //     //   .should('eq', 200);
-    // })
+        cy.request({
+            method:'GET', 
+            url:'/jobs',
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + Cypress.env("token")
+            }
+          })
+          .then((response) => {
+            expect(response.body.data.length).to.eq(0);
+            expect(response.body.error).to.eq(false);
+          })
+          .its('status')
+          .should('eq', 200);
+    })
 });

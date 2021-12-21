@@ -112,6 +112,34 @@ Cypress.Commands.add("getAllJobs", () => {
   .should('eq', 200);
 })
 
+Cypress.Commands.add("deleteAllJobs", () => {
+  cy.request({
+    method:'GET', 
+    url:'/jobs',
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + Cypress.env("token")
+    },
+  })
+  .then((response) => {
+    response.body.data.forEach(job=> {
+      cy.request({
+        method:'DELETE', 
+        url:'/jobs/'+job.id,
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + Cypress.env("token")
+        },
+      })
+      .its('status')
+      .should('eq', 200);
+    })
+    return response;
+  })
+  .its('status')
+  .should('eq', 200);
+})
+
 Cypress.Commands.add("addJob", () => {
   cy.request({
     method:'POST', 

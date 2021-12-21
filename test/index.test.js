@@ -7,15 +7,24 @@ const requestId = 1;
 const userId = 1;
 
 helpers.query = jest.fn();
+helpers.publishAndWait = jest.fn();
 manager.getSolver = jest.fn();
 manager.newSolver = jest.fn();
+manager.getIdleSolvers = jest.fn();
+Promise.all = jest.fn();
+Math.min = jest.fn();
+
 const publishFn = jest.fn();
 
 describe("JobService Tests", () => {
     beforeEach(async () => {
         helpers.query.mockClear();
+        helpers.publishAndWait.mockClear();
         manager.getSolver.mockClear();
         manager.newSolver.mockClear();
+        manager.getIdleSolvers.mockClear();
+        Math.min.mockClear();
+        Promise.all.mockClear();
         publishFn.mockClear();
     })
 
@@ -132,12 +141,26 @@ describe("JobService Tests", () => {
         expect(manager.newSolver).toHaveBeenCalledTimes(1);
     });
 
-    /** Queue check */
-    it("Should query the jobs database in queuecheck", async () => {
-    
-    });
-
-    it("Should query the jobFiles database in queuecheck if queue length > 0", async () => {
+    // /** Queue check */
+    // it("Should query the jobs database in queuecheck", async () => {
+    //     //Mock function returns:
+    //     const jobs = [{id: 1, userID: userId, status: "foo", solvers: [{dataID: 1, modelID: 1, jobID: 1},
+    //         {dataID: 2, modelID: 2, jobID: 2}, {dataID: 3, modelID: 3, jobID: 3}], insertId: 1}];
+    //     helpers.query.mockReturnValueOnce(jobs);
+    //     helpers.publishAndWait.mockReturnValueOnce({userID: 1, username: "123", password: "123", data: true, solverLimit: 10})
         
-    });
+    //     Math.min.mockReturnValueOnce(10);
+    //     const solvers = [{dataID: 1, modelID: 1, jobID: 1},
+    //         {dataID: 2, modelID: 2, jobID: 2}, {dataID: 3, modelID: 3, jobID: 3}];
+    //     manager.getIdleSolvers.mockReturnValueOnce(solvers);        
+
+    //     Promise.all.mockReturnValueOnce(["1", "2", solvers]);
+
+    //     // Call queue check 
+    //     await queueCheck({}, publishFn);
+        
+    //     //Expect the query to be called
+    //     expect(helpers.query).toHaveBeenCalledTimes(2);
+    //     expect(helpers.publishAndWait).toHaveBeenCalledTimes(2);
+    // });
 })
