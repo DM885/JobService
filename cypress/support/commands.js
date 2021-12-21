@@ -103,7 +103,7 @@ Cypress.Commands.add("getAllJobs", () => {
         "Authorization": "Bearer " + Cypress.env("token")
     },
   })
-  .as('loginResponse')
+  .as('getAllJobResponse')
   .then((response) => {
     Cypress.env("allJobs", response.body);
     return response;
